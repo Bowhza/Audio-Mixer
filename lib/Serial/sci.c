@@ -24,6 +24,7 @@ void Serial_TxByte(unsigned char data)
 
 void Serial_Tx(char *string)
 {
+    // Transmits every char in a string
     while (*string)
     {
         Serial_TxByte(*string);

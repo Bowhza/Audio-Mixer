@@ -15,8 +15,19 @@ typedef enum ADC_Channel
     ADC7 = 0b00000111,
 } ADC_Channel;
 
-void ADC_Init();
+/// @brief Enum for Interrupts Enable
+typedef enum ADC_Interrupt
+{
+    IDIS,
+    IEN
+} ADC_Interrupt;
 
+/// @brief Initialize the ADC
+/// @param Interrupts IEN to enable interrupts or IDIS to dissable interrupts
+void ADC_Init(ADC_Interrupt Interrupts);
+
+/// @brief Set the current pin for the ADC
+/// @param ADC_Channel ADC0 - ADC7
 void ADC_SetChannel(ADC_Channel ADC_Channel);
 
 #endif

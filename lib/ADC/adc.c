@@ -1,22 +1,31 @@
 #include "adc.h"
+#include "util/delay.h"
 
-void ADC_Init()
+void ADC_Init(ADC_Interrupt Interrupts)
 {
-    // AREF, Internal VRef turned OFF
-    // Left adjust the results
-    ADMUX = 0b01000000;
+    // AVcc with external capacitor at AREF pin
+    ADMUX = (1 << REFS0);
 
-    // Enable ADC
-    // Start Conversion
-    // Auto Trigger
-    // 128 Prescaler
-    ADCSRA = 0b11100111;
+    // Enable interrupts if specified
+    if (Interrupts)
+        ADCSRA |= (1 << ADIE); // Set ADIE bit to enable ADC interrupt
+    else
+        ADCSRA &= ~(1 << ADIE); // Clear ADIE bit to disable ADC interrupt
 
-    ADCSRB = 0b00000000;
+    // Set left adjustment result if necessary
+    // ADMUX &= ~(1 << ADLAR); // Uncomment this line if you want right adjustment result
+
+    // Enable ADC, start conversion, auto trigger, 128 prescaler
+    ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADATE) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
+
+    // Clear ADCSRB to set free running mode
+    ADCSRB = 0;
 }
 
 void ADC_SetChannel(ADC_Channel Channel)
 {
     // Clear previous channel selection and set the new channel
     ADMUX = (ADMUX & 0xF0) | (Channel & 0x0F);
+    // Necessary delay when switching between channels to prevent desync
+    _delay_ms(1);
 }

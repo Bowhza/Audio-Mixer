@@ -1,49 +1,72 @@
 #include "avr/io.h"
 #include "util/delay.h"
+#include "avr/interrupt.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include "sci.h"
 #include "adc.h"
 
-char ADCStr[20] = "";
+// Reference Voltage for the ADC
+#define REFERENCE_VOLTAGE 5.0
+// Default value is 1024.0
+#define ADC_MULTIPLIER 1024.0
+// Fader Potentiometer Count
+#define FADER_COUNT 5
+
+// String to transmit over serial
+char ADCStr[100] = "";
 
 // Array of ADC Values
-int ADC_Values[5];
+volatile int ADC_Values[FADER_COUNT];
+
+// Flag when the ADC Interrupt Triggers
+volatile char ADC_Read = 0;
+
+// Current selected ADC Channel
 ADC_Channel Channel;
 
 int main()
 {
-    Serial_Init();
-    ADC_Init(ADC0);
+    // Enable Interrupts
+    // Currently not required
+    // sei();
 
+    // Initialize Serial Communication
+    Serial_Init();
+    // Initialize Analog to Digital Converter
+    ADC_Init(IDIS);
+
+    // Main Loop
     while (1)
     {
-        _delay_ms(1500);
+        // Read the ADC value
+        ADC_Values[Channel] = ADC;
 
-        for (Channel = ADC0; Channel < ADC5; Channel++)
+        // Convert ADC value to voltage
+        float voltage = ((float)ADC_Values[Channel] / ADC_MULTIPLIER) * REFERENCE_VOLTAGE;
+
+        // Transfer function for converting Voltage to Percentage
+        float percentage = ((REFERENCE_VOLTAGE - voltage) / (REFERENCE_VOLTAGE)) * 100.0;
+
+        // Format RAW ADC, Voltage, and calculated slider percentage into a string
+        sprintf(ADCStr, "ADC[%d]: %u | Voltage: %.2fV | Percentage: %.1f%%\n",
+                Channel,
+                ADC_Values[Channel],
+                voltage,
+                percentage);
+
+        // Transmit the string over Serial
+        Serial_Tx(ADCStr);
+
+        // Update the channel
+        if (++Channel > FADER_COUNT - 1)
         {
-            ADC_SetChannel(Channel);
-
-            ADC_Values[Channel] = ADC;
-
-            // Print raw ADC value for debugging
-            sprintf(ADCStr, "ADC[%d]: %u | ", Channel, ADC_Values[Channel]);
-            Serial_Tx(ADCStr);
-
-            // Convert ADC value to voltage
-            float voltage = ((float)ADC_Values[Channel] / 1024.0) * 5.0;
-
-            // Format the voltage value into a string
-            sprintf(ADCStr, "Voltage: %.2fV | ", voltage);
-            Serial_Tx(ADCStr);
-
-            // Transfer function for converting Voltage to Percentage
-            float percentage = ((5.0 - voltage) / (5.0)) * 100.0;
-
-            // Format percentage into a string
-            sprintf(ADCStr, "Percentage: %.1f%%\n", percentage);
-            Serial_Tx(ADCStr);
+            _delay_ms(1000);
+            Channel = 0;
+            Serial_Tx("-----------------------------------------------\n");
         }
-        Serial_Tx("-----------------------------------------------\n");
+
+        // Set the ADC Channel
+        ADC_SetChannel(Channel);
     }
 }
