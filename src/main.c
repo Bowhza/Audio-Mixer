@@ -49,9 +49,8 @@ int main()
         float percentage = ((REFERENCE_VOLTAGE - voltage) / (REFERENCE_VOLTAGE)) * 100.0;
 
         // Format RAW ADC, Voltage, and calculated slider percentage into a string
-        sprintf(ADCStr, "ADC[%d]: %u | Voltage: %.2fV | Percentage: %.1f%%\n",
+        sprintf(ADCStr, "{\"Channel\": %d, \"Voltage\": %.2f, \"Percentage\": %.1f}\n",
                 Channel,
-                ADC_Values[Channel],
                 voltage,
                 percentage);
 
@@ -61,9 +60,7 @@ int main()
         // Update the channel
         if (++Channel > FADER_COUNT - 1)
         {
-            _delay_ms(1000);
             Channel = 0;
-            Serial_Tx("-----------------------------------------------\n");
         }
 
         // Set the ADC Channel
