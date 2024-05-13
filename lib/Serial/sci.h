@@ -4,7 +4,7 @@
 #define SCI
 
 #define CLOCK_SPEED 16000000
-#define BAUD 115200
+#define BAUD 9600
 #define MYUBRR ((((CLOCK_SPEED * 10 / 16) / BAUD) + 5) / 10) - 1
 
 /// @brief Initializes the USART

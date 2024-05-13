@@ -40,22 +40,29 @@ int main()
     while (1)
     {
         // Read the ADC value
-        ADC_Values[Channel] = ADC;
+        int ADC_Value = ADC;
 
-        // Convert ADC value to voltage
-        float voltage = ((float)ADC_Values[Channel] / ADC_MULTIPLIER) * REFERENCE_VOLTAGE;
+        // Check if the stored value for the channel different
+        if (ADC_Value != ADC_Values[Channel])
+        {
+            // Store the new ADC Value
+            ADC_Values[Channel] = ADC_Value;
 
-        // Transfer function for converting Voltage to Percentage
-        float percentage = ((REFERENCE_VOLTAGE - voltage) / (REFERENCE_VOLTAGE)) * 100.0;
+            // Convert ADC value to voltage
+            float voltage = ((float)ADC_Values[Channel] / ADC_MULTIPLIER) * REFERENCE_VOLTAGE;
 
-        // Format RAW ADC, Voltage, and calculated slider percentage into a string
-        sprintf(ADCStr, "{\"Channel\": %d, \"Voltage\": %.2f, \"Percentage\": %.1f}\n",
-                Channel,
-                voltage,
-                percentage);
+            // Transfer function for converting Voltage to Percentage
+            float percentage = ((REFERENCE_VOLTAGE - voltage) / (REFERENCE_VOLTAGE)) * 100.0;
 
-        // Transmit the string over Serial
-        Serial_Tx(ADCStr);
+            // Format RAW ADC, Voltage, and calculated slider percentage into a string
+            sprintf(ADCStr, "{\"Channel\": %d, \"Voltage\": %.2f, \"Percentage\": %.1f}\n",
+                    Channel,
+                    voltage,
+                    percentage);
+
+            // Transmit the string over Serial
+            Serial_Tx(ADCStr);
+        }
 
         // Update the channel
         if (++Channel > FADER_COUNT - 1)
