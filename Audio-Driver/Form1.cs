@@ -22,8 +22,6 @@ namespace Audio_Driver
         static AppConfig Config = ConfigManager.LoadConfig();
         //Initialize the serial port with the config settings
         SerialPort Serial = new SerialPort(Config.COMPort, Config.BaudRate, Parity.None, 8, StopBits.One);
-        //Load the stored settings
-        List<string> Applications = Config.Applications;
 
         //Selected Sessions
         Dictionary<int, AudioSessionControl> SelectedSessions = new Dictionary<int, AudioSessionControl>();
@@ -43,7 +41,7 @@ namespace Audio_Driver
             InitializeChannels(Config.Applications.Count > 5 ? 5 : Config.Applications.Count);
             InitializeComponent();
     
-            ScanProcessIDs(audioSessionManager, Applications);
+            ScanProcessIDs(audioSessionManager, Config.Applications);
             Trace.WriteLine($"{Config.COMPort} | {Config.BaudRate}");
             Config.Applications.ForEach(app => Trace.Write(app.ToString() + " | "));
 
@@ -83,7 +81,7 @@ namespace Audio_Driver
         {
             audioSessionManager.RefreshSessions();
             newSession.GetDisplayName(out string displayName);
-            Invoke(new Action(() => ScanProcessIDs(audioSessionManager, Applications)));
+            Invoke(new Action(() => ScanProcessIDs(audioSessionManager, Config.Applications)));
         }
 
         private void Serial_DataReceived(object sender, SerialDataReceivedEventArgs e)
@@ -103,7 +101,7 @@ namespace Audio_Driver
                 try
                 {
                     //Adjust the master volume
-                    if (Applications[Data.Channel] == "*")
+                    if (Config.Applications[Data.Channel] == "*")
                     {
                         //Invoke required for master volume adjust
                         Invoke(new Action(() =>
@@ -117,7 +115,7 @@ namespace Audio_Driver
                         }));
                     }
                     //Adjust volume for all unbound sessions
-                    else if (Applications[Data.Channel] == "-")
+                    else if (Config.Applications[Data.Channel] == "-")
                     {
                         //Adjust the volume for each unbound session
                         foreach (var session in UnboundSessions)
@@ -150,7 +148,11 @@ namespace Audio_Driver
         /// <param name="Applications">The list of selected application</param>
         private void ScanProcessIDs(AudioSessionManager Manager, List<string> Applications)
         {
+            //Clear all Collections
             Sessions_List.Items.Clear();
+            SelectedSessions.Clear();
+            UnboundSessions.Clear();
+
             for (int i = 0; i < Manager.Sessions.Count; i++)
             {
                 var session = Manager.Sessions[i];
@@ -204,6 +206,8 @@ namespace Audio_Driver
 
                 //Save the object into the configuration file as JSON
                 ConfigManager.SaveConfig(Config, out string Message);
+
+                ScanProcessIDs(audioSessionManager, Config.Applications);
                 //Display a message box with the message.
                 MessageBox.Show(Message, "Configuration", MessageBoxButtons.OK);
             }
