@@ -40,7 +40,9 @@ namespace Audio_Driver
         {
             InitializeChannels(Config.Applications.Count > 5 ? 5 : Config.Applications.Count);
             InitializeComponent();
-    
+            InitializeNotifyIcon();
+            InitializeContextMenu();
+
             ScanProcessIDs(audioSessionManager, Config.Applications);
             Trace.WriteLine($"{Config.COMPort} | {Config.BaudRate}");
             Config.Applications.ForEach(app => Trace.Write(app.ToString() + " | "));
@@ -141,6 +143,40 @@ namespace Audio_Driver
             }
         }
 
+        private void SaveConfig_Click(object sender, EventArgs e)
+        {
+            //Check if the baudrate enter is a valid integer
+            if (!int.TryParse(Baud_Rate_Tbx.Text, out int BaudRate))
+            {
+                MessageBox.Show("The baud rate value entered is not valid.", "Configuration", MessageBoxButtons.OK);
+                Baud_Rate_Tbx.Text = Config.BaudRate.ToString();
+                return;
+            }
+
+            try
+            {
+                //Save the text from each of the text boxes into the config object
+                for (int i = 0; i < Config.Applications.Count; i++)
+                {
+                    Config.Applications[i] = AppNames[i].Text;
+                }
+                //Save the BaudRate and COM Port entered
+                Config.BaudRate = BaudRate;
+                Config.COMPort = COM_Port_Tbx.Text;
+
+                //Save the object into the configuration file as JSON
+                ConfigManager.SaveConfig(Config, out string Message);
+
+                ScanProcessIDs(audioSessionManager, Config.Applications);
+                //Display a message box with the message.
+                MessageBox.Show(Message, "Configuration", MessageBoxButtons.OK);
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine(ex.ToString());
+            }
+        }
+
         /// <summary>
         /// Scans all sessions int the AudioSessionManager and adds the Applications to their corresponding Lists.
         /// </summary>
@@ -183,38 +219,5 @@ namespace Audio_Driver
             }
         }
 
-        private void SaveConfig_Click(object sender, EventArgs e)
-        {
-            //Check if the baudrate enter is a valid integer
-            if(!int.TryParse(Baud_Rate_Tbx.Text, out int BaudRate))
-            {
-                MessageBox.Show("The baud rate value entered is not valid.", "Configuration", MessageBoxButtons.OK);
-                Baud_Rate_Tbx.Text = Config.BaudRate.ToString();
-                return;
-            }
-
-            try
-            {
-                //Save the text from each of the text boxes into the config object
-                for (int i = 0; i < Config.Applications.Count; i++)
-                {
-                    Config.Applications[i] = AppNames[i].Text;
-                }
-                //Save the BaudRate and COM Port entered
-                Config.BaudRate = BaudRate;
-                Config.COMPort = COM_Port_Tbx.Text;
-
-                //Save the object into the configuration file as JSON
-                ConfigManager.SaveConfig(Config, out string Message);
-
-                ScanProcessIDs(audioSessionManager, Config.Applications);
-                //Display a message box with the message.
-                MessageBox.Show(Message, "Configuration", MessageBoxButtons.OK);
-            }
-            catch (Exception ex)
-            {
-                Trace.WriteLine(ex.ToString());
-            }
-        }
     }
 }
