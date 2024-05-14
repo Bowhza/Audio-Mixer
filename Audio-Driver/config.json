@@ -1,0 +1,20 @@
+{
+  "baudRate": 9600, // Serial port baud rate
+  "COMPort": "COM3", // Serial port name
+  "applications": [
+    /* 
+        
+        List of applications (Case sensitive)
+        Wild Cards:
+            "*" = Master Volume
+            "-" = All unbound applications
+            "!" = Active or fullscreen window (Work in Progress)
+
+    */
+    "*",
+    "-",
+    "!",
+    "Spotify",
+    "Discord"
+  ]
+}

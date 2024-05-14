@@ -8,3 +8,5 @@
 lib/README
 include/README
 test/README
+Audio-Driver/bin
+Audio-Driver/obj
