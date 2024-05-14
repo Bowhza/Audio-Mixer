@@ -242,7 +242,10 @@
             this.Controls.Add(this.label1);
             this.Controls.Add(this.Sessions_List);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.MaximumSize = new System.Drawing.Size(750, 450);
+            this.MinimumSize = new System.Drawing.Size(750, 450);
             this.Name = "Form1";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Audio Driver";
             this.ResumeLayout(false);
             this.PerformLayout();
