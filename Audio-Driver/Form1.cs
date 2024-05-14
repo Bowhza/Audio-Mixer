@@ -31,6 +31,8 @@ namespace Audio_Driver
         HashSet<AudioSessionControl> UnboundSessions = new HashSet<AudioSessionControl>();
         //Channels and their corresponding volume levels
         Dictionary<int, float> Channels = new Dictionary<int, float>();
+        //Stores the textboxes
+        List<TextBox> AppNames = null;
 
         static MMDeviceEnumerator deviceEnumerator = new MMDeviceEnumerator();
         static MMDevice device = deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
@@ -38,8 +40,9 @@ namespace Audio_Driver
 
         public Form1()
         {
+            InitializeChannels(Config.Applications.Count > 5 ? 5 : Config.Applications.Count);
             InitializeComponent();
-            InitializeChannels(5);
+    
             ScanProcessIDs(audioSessionManager, Applications);
             Trace.WriteLine($"{Config.COMPort} | {Config.BaudRate}");
             Config.Applications.ForEach(app => Trace.Write(app.ToString() + " | "));
@@ -53,6 +56,25 @@ namespace Audio_Driver
                 Console.WriteLine(ex.ToString());
             }
 
+            //Store the Slider Text boxes in a list for easy access
+            AppNames = new List<TextBox>
+            {
+                Slider_1_Tbx,
+                Slider_2_Tbx,
+                Slider_3_Tbx,
+                Slider_4_Tbx,
+                Slider_5_Tbx
+            };
+
+            //Load config values into the UI textboxes
+            for (int i = 0; i < Config.Applications.Count; i++)
+            {
+                AppNames[i].Text = Config.Applications[i];
+            }
+            Baud_Rate_Tbx.Text = Config.BaudRate.ToString();
+            COM_Port_Tbx.Text = Config.COMPort;
+
+            //Event listeners for serial data and audio sessions
             Serial.DataReceived += Serial_DataReceived;
             audioSessionManager.OnSessionCreated += AudioSessionManager_OnSessionCreated;
         }
@@ -156,6 +178,38 @@ namespace Audio_Driver
             for (int i = 0; i < Count; i++)
             {
                 Channels.Add(i, 100.0f);
+            }
+        }
+
+        private void SaveConfig_Click(object sender, EventArgs e)
+        {
+            //Check if the baudrate enter is a valid integer
+            if(!int.TryParse(Baud_Rate_Tbx.Text, out int BaudRate))
+            {
+                MessageBox.Show("The baud rate value entered is not valid.", "Configuration", MessageBoxButtons.OK);
+                Baud_Rate_Tbx.Text = Config.BaudRate.ToString();
+                return;
+            }
+
+            try
+            {
+                //Save the text from each of the text boxes into the config object
+                for (int i = 0; i < Config.Applications.Count; i++)
+                {
+                    Config.Applications[i] = AppNames[i].Text;
+                }
+                //Save the BaudRate and COM Port entered
+                Config.BaudRate = BaudRate;
+                Config.COMPort = COM_Port_Tbx.Text;
+
+                //Save the object into the configuration file as JSON
+                ConfigManager.SaveConfig(Config, out string Message);
+                //Display a message box with the message.
+                MessageBox.Show(Message, "Configuration", MessageBoxButtons.OK);
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine(ex.ToString());
             }
         }
     }
