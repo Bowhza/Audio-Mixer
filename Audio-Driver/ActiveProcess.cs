@@ -33,6 +33,14 @@ namespace Audio_Driver
             return Process.GetProcessById((int)processId);
         }
 
+        public static int GetActiveProcessId()
+        {
+            IntPtr hWnd = GetForegroundWindow();
+            uint processId;
+            GetWindowThreadProcessId(hWnd, out processId);
+            return (int)processId;
+        }
+
         public static bool IsForegroundWindow(uint processId)
         {
             IntPtr hWnd = GetForegroundWindow();

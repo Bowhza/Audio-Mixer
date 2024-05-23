@@ -11,7 +11,7 @@ namespace Audio_Driver
     public partial class Form1 : Form
     {
         private NotifyIcon NotifyIcon;
-        private ContextMenuStrip CMS;
+        private ContextMenuStrip ContextMStrip;
 
         /// <summary>
         /// Initializes a NotifyIcon for system tray.
@@ -30,34 +30,23 @@ namespace Audio_Driver
         /// </summary>
         private void InitializeContextMenu()
         {
-            CMS = new ContextMenuStrip();
+            ContextMStrip = new ContextMenuStrip();
             ToolStripMenuItem closeMenuItem = new ToolStripMenuItem("Close");
-            CMS.Click += CMS_Click;
-            CMS.Items.Add(closeMenuItem);
+            ContextMStrip.Click += ContextMStrip_Click;
+            ContextMStrip.Items.Add(closeMenuItem);
         }
 
-
-        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        protected override void OnResize(EventArgs e)
         {
-            //Check if the user clicks the close button
-            if (e.CloseReason == CloseReason.UserClosing)
-            {
-                //Cancel the event, hide the form and show a notification.
-                e.Cancel = true;
-                NotifyIcon.Visible = true;
-                NotifyIcon.ShowBalloonTip(500, "Minimized to Tray", "The Audio Driver GUI has been minimized to the system tray.", ToolTipIcon.Info);
-                Hide();
-            }
-        }
+            base.OnResize(e);
 
-        private void Form1_Resize(object sender, EventArgs e)
-        {
-            //Handles minimization
             if (WindowState == FormWindowState.Minimized)
             {
-                Hide();
+                //Show balloon tip when minimized to system tray
                 NotifyIcon.Visible = true;
                 NotifyIcon.ShowBalloonTip(500, "Minimized to Tray", "The Audio Driver GUI has been minimized to the system tray.", ToolTipIcon.Info);
+                //Hide the form
+                Hide();
             }
         }
 
@@ -68,22 +57,23 @@ namespace Audio_Driver
             {
                 Show();
                 WindowState = FormWindowState.Normal;
-                NotifyIcon.Visible = false;                
+                NotifyIcon.Visible = true;
             }
         }
 
         private void NotifyIcon_MouseClick(object sender, MouseEventArgs e)
         {
             //Show the context menu if the tray icon is right clicked
-            if(e.Button == MouseButtons.Right)
+            if (e.Button == MouseButtons.Right)
             {
-                CMS.Show(Cursor.Position);
+                ContextMStrip.Show(Cursor.Position);
             }
         }
 
-        private void CMS_Click(object sender, EventArgs e)
+        private void ContextMStrip_Click(object sender, EventArgs e)
         {
             //Closes the application on "Close" Option.
+            NotifyIcon.Visible = false;
             Application.Exit();
         }
     }

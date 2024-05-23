@@ -25,6 +25,10 @@ namespace Audio_Driver
         {
             try
             {
+                if(!File.Exists(ConfigFilePath))
+                {
+                    using (File.Create(ConfigFilePath)) { };
+                }
                 string JSONData = JsonConvert.SerializeObject(Config, Formatting.Indented);
                 File.WriteAllText(ConfigFilePath, JSONData);
                 Message = "Successfully saved the configuration.";
@@ -49,7 +53,10 @@ namespace Audio_Driver
                 if (File.Exists(ConfigFilePath))
                 {
                     string json = File.ReadAllText(ConfigFilePath);
-                    return JsonConvert.DeserializeObject<AppConfig>(json);
+                    if(json.Trim() != "")
+                    {
+                        return JsonConvert.DeserializeObject<AppConfig>(json);
+                    }
                 }
             }
             catch (Exception ex)
@@ -58,7 +65,12 @@ namespace Audio_Driver
             }
 
             // Return default config if file doesn't exist or there's an error
-            return new AppConfig { BaudRate = 9600, COMPort = "COM3", Applications = new List<string>() };
+            return new AppConfig
+            {
+                BaudRate = 9600,
+                COMPort = "COM3",
+                Applications = new List<string> { "", "", "", "", "" }
+            };
         }
     }
 }
