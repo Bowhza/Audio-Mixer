@@ -62,7 +62,7 @@ Wildcards are used to assign multiple applications to the same slider.
 
 - `*` Master Volume Control.
 - `-` Controls all applications that are not assigned to a slider.
-- `!` Current Active Window/Fullscreen Window (Not Implemented Yet)
+- `!` Current Active Window/Fullscreen Window.
 
 To assign specific applications to a slider, you can type in the process name directly instead. (Seen in the "Detected Sessions" list).
 
@@ -102,11 +102,10 @@ Once the extenstion is installed and your microcontroller is connected to your c
 
 Things that can be improved, added or fixed:
 
-- [ ] Add functionality for the `!` wildcard.
+- [x] Add functionality for the `!` wildcard.
+- [x] Add auto config creation if one does not exist.
 - [ ] Fix bug where audio sessions do not refresh.
 - [ ] Improve code to account for noise.
 - [ ] Add support for SSD1306 OLED to various information on the mixer.
 - [ ] Add support for linux.
 - [ ] Much More...
-
----
