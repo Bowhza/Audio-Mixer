@@ -98,14 +98,39 @@ Once the extenstion is installed and your microcontroller is connected to your c
 
 7. The code is now flashed to the device, and you can run the provided executable.
 
+### Changing the board
+
+If you are running a microcontroller that does not use the ATMega328p, you can modify the configuration file for Platform-IO to use the board of your choice.
+
+1. Open the Platform-IO extension and click on the `Projects & Configuration` option.
+
+<img src="./assets/Platform-IO-Options.png" height="600px">
+
+2. Click on the `Projects` button on the side bar, you should see a list of the projects.
+
+![Image of the upload success](/assets/Platform-IO-Projects.png)
+
+3. Click `Configure` for the Mixer project (The name may vary depending where the project is stored).
+
+<img src="./assets/Platform-IO-Config.png" height="700px">
+
+4. You should now see the configuration for the project where you can modify the `env` and `Board`.
+
+5. After you are done modifying the configuration, click on `Save` in the top right corner.
+
+**Notes**:
+
+- You can directly modify the `platformio.ini` file if you prefer.
+- As mentioned above, the code is designed to work on the ATmega328p and similar AVR microcontrollers.
+
 ## To-Do List
 
 Things that can be improved, added or fixed:
 
 - [x] Add functionality for the `!` wildcard.
 - [x] Add auto config creation if one does not exist.
-- [ ] Fix bug where audio sessions do not refresh.
-- [ ] Improve code to account for noise.
-- [ ] Add support for SSD1306 OLED to various information on the mixer.
+- [x] Improve code to account for hysteresis.
+- [ ] Add device configuration over serial for options like the hysteresis threshold.
+- [ ] Add support for SSD1306 OLED to display various information on the mixer.
 - [ ] Add support for linux.
-- [ ] Much More...
+- [ ] Other features...
