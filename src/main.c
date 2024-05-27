@@ -12,6 +12,8 @@
 #define ADC_MULTIPLIER 1024.0
 // Fader Potentiometer Count
 #define FADER_COUNT 5
+// Hysteresis threshold to prevent small fluctuations
+#define HYSTERESIS_THRESHOLD 2
 
 // String to transmit over serial
 char ADCStr[100] = "";
@@ -43,7 +45,7 @@ int main()
         int ADC_Value = ADC;
 
         // Check if the stored value for the channel different
-        if (ADC_Value != ADC_Values[Channel])
+        if (abs(ADC_Value - ADC_Values[Channel]) >= HYSTERESIS_THRESHOLD)
         {
             // Store the new ADC Value
             ADC_Values[Channel] = ADC_Value;
@@ -66,9 +68,7 @@ int main()
 
         // Update the channel
         if (++Channel > FADER_COUNT - 1)
-        {
             Channel = 0;
-        }
 
         // Set the ADC Channel
         ADC_SetChannel(Channel);
