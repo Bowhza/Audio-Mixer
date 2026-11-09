@@ -1,0 +1,303 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AudioMixer.ViewModels"
+        xmlns:models="using:AudioMixer.Models"
+        xmlns:svc="using:AudioMixer.Services"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+        x:Class="AudioMixer.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        x:Name="Root"
+        Width="1280" Height="720"
+        MinWidth="1280" MinHeight="720"
+        Icon="/Assets/Mixer-Icon.ico"
+        Background="{DynamicResource PageBackground}"
+        Title="Audio Mixer">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid Margin="16" RowDefinitions="Auto,*,Auto">
+
+        <!-- ===================== Header ===================== -->
+        <Border Grid.Row="0" Classes="card" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <Image Grid.Column="0" Width="36" Height="36" Margin="0,0,12,0"
+                       Source="/Assets/Mixer-Icon.png" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="h1" Text="{Binding DeviceName}"/>
+                    <TextBlock Classes="subtle" Text="{Binding DeviceInfo}"/>
+                </StackPanel>
+
+                <Border Grid.Column="2" Classes="pill statusPill" Margin="0,0,10,0"
+                        Classes.connected="{Binding IsConnected}">
+                    <Border.Styles>
+                        <Style Selector="Border.statusPill.connected">
+                            <Setter Property="Background" Value="{DynamicResource ConnectedBrush}"/>
+                        </Style>
+                        <Style Selector="Border.statusPill:not(.connected)">
+                            <Setter Property="Background" Value="{DynamicResource DisconnectedBrush}"/>
+                        </Style>
+                    </Border.Styles>
+                    <TextBlock Text="{Binding ConnectionStatus}" Foreground="White"
+                               FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+
+                <!-- Settings (connection) menu -->
+                <Button Grid.Column="3" Padding="10,6" ToolTip.Tip="Connection settings">
+                    <TextBlock Text="⚙" FontSize="16"/>
+                    <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedRight">
+                            <StackPanel Width="340" Spacing="14" Margin="4">
+                                <TextBlock Classes="h2" Text="Connection"/>
+                                <ToggleSwitch IsChecked="{Binding AutoDetect}"
+                                              OnContent="Auto-detect" OffContent="Manual port"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10"
+                                            IsEnabled="{Binding !AutoDetect}">
+                                    <TextBlock Text="Port" Classes="subtle" Width="42"
+                                               VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding AvailablePorts}"
+                                              SelectedItem="{Binding SelectedPort}" MinWidth="264">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="svc:SerialPortInfo">
+                                                <TextBlock Text="{Binding Display}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="Baud" Classes="subtle" Width="42"
+                                               VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding BaudRateText}" Width="120"/>
+                                    <Button Command="{Binding ReconnectCommand}" Content="Reconnect"/>
+                                </StackPanel>
+
+                                <Border Height="1" Background="{DynamicResource CardBorder}" Margin="0,2"/>
+                                <TextBlock Classes="h2" Text="Device"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="Name" Classes="subtle" Width="42"
+                                               VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding DeviceName}" Width="158" MaxLength="15"/>
+                                    <Button Command="{Binding RenameDeviceCommand}" Content="Rename"/>
+                                </StackPanel>
+                                <TextBlock Classes="subtle" TextWrapping="Wrap"
+                                           Text="Stored on the device. Up to 15 characters."/>
+
+                                <Border Height="1" Background="{DynamicResource CardBorder}" Margin="0,2"/>
+                                <TextBlock Classes="h2" Text="Jitter filter"/>
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <Slider Grid.Column="0" Minimum="1" Maximum="32"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            Value="{Binding Hysteresis}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Hysteresis}" Width="28"
+                                               TextAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource StrongText}"/>
+                                    <Button Grid.Column="2" Command="{Binding ApplyHysteresisCommand}"
+                                            Content="Set" Margin="8,0,0,0"/>
+                                </Grid>
+                                <TextBlock Classes="subtle" TextWrapping="Wrap"
+                                           Text="Higher = steadier values when idle, lower = more responsive. Raise it if readings drift while you're not touching the sliders."/>
+
+                                <Border Height="1" Background="{DynamicResource CardBorder}" Margin="0,2"/>
+                                <TextBlock Classes="h2" Text="Firmware"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Command="{Binding FlashFirmwareCommand}"
+                                            Content="Flash firmware" IsEnabled="{Binding !IsFlashing}"/>
+                                    <TextBlock Text="Flashing…" Classes="subtle" VerticalAlignment="Center"
+                                               IsVisible="{Binding IsFlashing}"/>
+                                </StackPanel>
+                                <TextBlock Classes="subtle" TextWrapping="Wrap"
+                                           Text="Reflashes the bundled firmware to the connected board via avrdude."/>
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- ===================== Body ===================== -->
+        <Grid Grid.Row="1" ColumnDefinitions="240,14,*">
+
+            <!-- Detected sessions -->
+            <Border Grid.Column="0" Classes="card">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Classes="h2" Text="Detected Sessions"
+                                   VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Command="{Binding RescanCommand}"
+                                Content="⟳" Padding="10,4" ToolTip.Tip="Refresh sessions"/>
+                    </Grid>
+                    <TextBlock Grid.Row="1" Classes="subtle" Margin="0,4,0,10"
+                               Text="Apps currently playing audio. Assign one by clicking a fader's target."
+                               TextWrapping="Wrap"/>
+                    <ListBox Grid.Row="2" ItemsSource="{Binding Sessions}"
+                             Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:AudioSessionInfo">
+                                <StackPanel Orientation="Horizontal" Spacing="10" Margin="2">
+                                    <Image Width="22" Height="22" Source="{Binding Icon}"
+                                           IsVisible="{Binding HasIcon}"/>
+                                    <TextBlock Text="🎵" FontSize="15" Width="22" TextAlignment="Center"
+                                               IsVisible="{Binding !HasIcon}"/>
+                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Right column -->
+            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
+
+                <!-- Faders header -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,2,10">
+                    <TextBlock Grid.Column="0" Classes="h2" Text="Faders" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <Button Command="{Binding RemoveFaderCommand}" Content="Remove fader"
+                                IsVisible="{Binding !IsCalibrating}" Padding="12,6"/>
+                        <Button Command="{Binding StartCalibrationCommand}" Content="Calibrate"
+                                IsVisible="{Binding !IsCalibrating}" Padding="14,6"
+                                ToolTip.Tip="Map each slider's real travel to a clean 0-100%"/>
+                        <Button Command="{Binding SaveCommand}" Content="Save Configuration"
+                                IsEnabled="{Binding !IsCalibrating}"
+                                Background="{DynamicResource AccentBrush}" Foreground="White"
+                                Padding="14,6"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Calibration banner -->
+                <Border Grid.Row="1" Classes="card" Margin="0,0,0,10"
+                        IsVisible="{Binding IsCalibrating}"
+                        Background="{DynamicResource BadgeBackground}">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Classes="h2" Text="Calibrating sliders"/>
+                            <TextBlock Classes="subtle" TextWrapping="Wrap"
+                                       Text="Move every slider fully down, then fully up. Audio is paused while calibrating."/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Command="{Binding FinishCalibrationCommand}"
+                                Content="Finish" Margin="8,0,0,0" Padding="14,6"
+                                Background="{DynamicResource ConnectedBrush}" Foreground="White"/>
+                        <Button Grid.Column="2" Command="{Binding CancelCalibrationCommand}"
+                                Content="Cancel" Margin="8,0,0,0" Padding="14,6"/>
+                    </Grid>
+                </Border>
+
+                <!-- Fader console (vertical strips, fill height, no vertical scroll) -->
+                <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Orientation="Horizontal">
+                        <ItemsControl ItemsSource="{Binding Faders}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FaderViewModel">
+                                    <Border Classes="fader" VerticalAlignment="Stretch">
+                                        <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+                                            <!-- Title -->
+                                            <TextBlock Grid.Row="0" Classes="h2" Text="{Binding Title}"
+                                                       HorizontalAlignment="Center"/>
+
+                                            <!-- Square assign target: icon + name, opens picker.
+                                                 Fixed height keeps every fader's bar aligned. -->
+                                            <Button Grid.Row="1" Classes="assign" Height="104"
+                                                    Margin="0,10,0,12">
+                                                <StackPanel Spacing="4" VerticalAlignment="Center">
+                                                    <Border Width="44" Height="44" CornerRadius="10"
+                                                            Background="{DynamicResource BadgeBackground}"
+                                                            HorizontalAlignment="Center">
+                                                        <Panel>
+                                                            <Image Width="36" Height="36"
+                                                                   Source="{Binding AssignedIcon}"
+                                                                   IsVisible="{Binding HasAssignedIcon}"/>
+                                                            <TextBlock Text="{Binding AssignedGlyph}" FontSize="20"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       IsVisible="{Binding !HasAssignedIcon}"/>
+                                                        </Panel>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding AssignedLabel}" FontSize="11"
+                                                               Foreground="{DynamicResource StrongText}"
+                                                               HorizontalAlignment="Center" TextAlignment="Center"
+                                                               TextWrapping="Wrap" MaxWidth="120" MaxHeight="30"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                                <Button.Flyout>
+                                                    <Flyout Placement="Bottom">
+                                                        <Border Width="248" MaxHeight="360">
+                                                            <ListBox ItemsSource="{Binding Options}"
+                                                                     SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
+                                                                     Background="Transparent" BorderThickness="0">
+                                                                <ListBox.ItemTemplate>
+                                                                    <DataTemplate x:DataType="models:AssignmentOption">
+                                                                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="2">
+                                                                            <Image Width="24" Height="24" Source="{Binding Icon}"
+                                                                                   IsVisible="{Binding HasIcon}"/>
+                                                                            <TextBlock Text="{Binding Glyph}" FontSize="16"
+                                                                                       Width="24" TextAlignment="Center"
+                                                                                       IsVisible="{Binding !HasIcon}"/>
+                                                                            <TextBlock Text="{Binding DisplayName}"
+                                                                                       VerticalAlignment="Center"/>
+                                                                        </StackPanel>
+                                                                    </DataTemplate>
+                                                                </ListBox.ItemTemplate>
+                                                            </ListBox>
+                                                        </Border>
+                                                    </Flyout>
+                                                </Button.Flyout>
+                                            </Button>
+
+                                            <!-- Vertical volume bar: a full-height gradient revealed from
+                                                 the bottom, so the green→red colours stay at absolute levels
+                                                 and never squish as the fill changes. -->
+                                            <Border Grid.Row="2" Width="18" MinHeight="120" Margin="0,4"
+                                                    CornerRadius="9" ClipToBounds="True"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                                    Background="{DynamicResource TrackBackground}">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="{Binding UnfilledRow}"/>
+                                                        <RowDefinition Height="{Binding FilledRow}"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Rectangle Grid.Row="0" Grid.RowSpan="2"
+                                                               Fill="{DynamicResource FaderFill}"/>
+                                                    <Rectangle Grid.Row="0" Fill="{DynamicResource TrackBackground}"/>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Live percentage -->
+                                            <TextBlock Grid.Row="3" Text="{Binding VolumeLabel}"
+                                                       FontSize="20" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource StrongText}"
+                                                       HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Add fader -->
+                        <Button Classes="addfader" Command="{Binding AddFaderCommand}">
+                            <StackPanel Spacing="6" VerticalAlignment="Center">
+                                <TextBlock Text="＋" FontSize="30" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Add" FontSize="12" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- ===================== Footer ===================== -->
+        <Border Grid.Row="2" Classes="card" Margin="0,14,0,0" Padding="14,10">
+            <TextBlock Text="{Binding StatusMessage}" Classes="subtle"/>
+        </Border>
+    </Grid>
+</Window>

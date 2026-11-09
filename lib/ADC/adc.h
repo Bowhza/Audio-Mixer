@@ -5,14 +5,14 @@
 
 typedef enum ADC_Channel
 {
-    ADC0 = 0b00000000,
-    ADC1 = 0b00000001,
-    ADC2 = 0b00000010,
-    ADC3 = 0b00000011,
-    ADC4 = 0b00000100,
-    ADC5 = 0b00000101,
-    ADC6 = 0b00000110,
-    ADC7 = 0b00000111,
+    ADC0 = 0x00,
+    ADC1 = 0x01,
+    ADC2 = 0x02,
+    ADC3 = 0x03,
+    ADC4 = 0x04,
+    ADC5 = 0x05,
+    ADC6 = 0x06,
+    ADC7 = 0x07,
 } ADC_Channel;
 
 /// @brief Enum for Interrupts Enable

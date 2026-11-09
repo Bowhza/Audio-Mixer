@@ -1,0 +1,133 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AudioMixer.App"
+             xmlns:local="using:AudioMixer"
+             RequestedThemeVariant="Dark">
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- Dark-only palette -->
+            <SolidColorBrush x:Key="PageBackground" Color="#121320"/>
+            <SolidColorBrush x:Key="CardBackground" Color="#1C1E2B"/>
+            <SolidColorBrush x:Key="CardBackgroundAlt" Color="#171825"/>
+            <SolidColorBrush x:Key="CardBorder" Color="#2C2F42"/>
+            <SolidColorBrush x:Key="SubtleText" Color="#9AA0B4"/>
+            <SolidColorBrush x:Key="StrongText" Color="#F2F3F8"/>
+            <SolidColorBrush x:Key="TrackBackground" Color="#2A2D3E"/>
+            <SolidColorBrush x:Key="AccentBrush" Color="#5B8DEF"/>
+            <SolidColorBrush x:Key="BadgeBackground" Color="#262940"/>
+            <SolidColorBrush x:Key="ConnectedBrush" Color="#2FBF71"/>
+            <SolidColorBrush x:Key="DisconnectedBrush" Color="#E0564B"/>
+
+            <!-- Volume bar fill: green most of the way, yellow high, red only in the
+                 top ~15% (so a partly-filled bar never shows red at its tip). -->
+            <LinearGradientBrush x:Key="FaderFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Offset="0.0" Color="#E0564B"/>
+                <GradientStop Offset="0.15" Color="#E8954B"/>
+                <GradientStop Offset="0.32" Color="#E7C94B"/>
+                <GradientStop Offset="0.55" Color="#6BC357"/>
+                <GradientStop Offset="1.0" Color="#2FBF71"/>
+            </LinearGradientBrush>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+
+        <!-- Vertical fader strip -->
+        <Style Selector="Border.fader">
+            <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Width" Value="152"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+
+        <Style Selector="Border.badge">
+            <Setter Property="Background" Value="{DynamicResource BadgeBackground}"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="Border.pill">
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource StrongText}"/>
+        </Style>
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource StrongText}"/>
+        </Style>
+        <Style Selector="TextBlock.subtle">
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- Clickable "assign target" on each fader -->
+        <Style Selector="Button.assign">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.assign:pointerover /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+
+        <!-- Vertical volume bar (fills the available height) -->
+        <Style Selector="ProgressBar.vfader">
+            <Setter Property="Orientation" Value="Vertical"/>
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="MinHeight" Value="120"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Foreground" Value="{DynamicResource FaderFill}"/>
+            <Setter Property="Background" Value="{DynamicResource TrackBackground}"/>
+        </Style>
+
+        <!-- "Add fader" strip -->
+        <Style Selector="Button.addfader">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Width" Value="84"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}"/>
+        </Style>
+        <Style Selector="Button.addfader:pointerover /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+    </Application.Styles>
+</Application>

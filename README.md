@@ -38,23 +38,51 @@ Here is an assembled breadboard prototype with 5 sliders all connected to the **
 
 **Desktop Application**
 
-- Allows the user to see all active audio sessions.
-- Easily modify the configuration file.
-- Change the settings of the Serial Port.
+The driver is a modern **Avalonia (.NET 10)** app (`AudioMixer/`) with a dark
+interface and a vertical fader console. It:
+
+- **Auto-detects the mixer over USB**: scans serial ports, prefers known
+  USB-serial bridges (CH340 / FTDI / Arduino / CP210x), confirms the device with
+  an `ID?` handshake, and reconnects automatically on hot-plug.
+- **Assigns apps by clicking a fader**: click a fader's target to pick from a
+  list of the wildcards plus every app currently playing audio, each with its
+  icon. The chosen app's icon and name show on the fader.
+- **Shows live levels** on vertical bars with a fixed green → red gradient.
+- **Calibrates each slider**: a guided mode maps a slider's real travel onto a
+  clean 0-100% (handy when a pot doesn't swing the full range).
+- **Adds / removes faders**, **renames the device**, and **tunes the jitter
+  filter**: all stored on the device's EEPROM (see the Serial Protocol below),
+  so they survive power cycles.
+- **Flashes the firmware** from the settings menu, with `avrdude` and the
+  firmware image bundled (no toolchain required).
+- **Syncs on connect**: asks the device for every slider's current position so
+  volumes and the UI match the hardware immediately.
+- Builds its fader rows dynamically from the device, runs in the system tray,
+  and keeps the same `config.json` format as before.
 
 ![Image of the audio driver application interface](/assets/Audio-Driver.png)
 
 ## Configuration File
 
-The following is the configuration JSON file that is stored in the same directory as the audio driver application. The user can directly modify the file or use the GUI.
+The following is the configuration JSON file that is stored in the same directory as the audio driver application. It is created automatically on first run, and the user can edit it directly or use the GUI.
 
 ```json
 {
   "BaudRate": 9600,
   "COMPort": "COM4",
-  "Applications": ["*", "-", "chrome", "Discord", "Spotify"]
+  "AutoDetect": true,
+  "Theme": "Dark",
+  "Applications": ["*", "-", "chrome", "Discord", "Spotify"],
+  "Calibration": [
+    { "Min": 0, "Max": 100 }
+  ]
 }
 ```
+
+- `AutoDetect`: when `true`, the driver finds and connects to the mixer on its
+  own. When `false` it uses `COMPort`.
+- `Calibration`: per-fader input range captured by the **Calibrate** button
+  (maps each slider's real travel onto 0-100%). Optional.
 
 ### Wildcards
 
@@ -64,15 +92,68 @@ Wildcards are used to assign multiple applications to the same slider.
 - `-` Controls all applications that are not assigned to a slider.
 - `!` Current Active Window/Fullscreen Window.
 
-To assign specific applications to a slider, you can type in the process name directly instead. (Seen in the "Detected Sessions" list).
+To assign a specific application to a slider, just pick it from that fader's
+dropdown (it lists every app in the "Detected Sessions" list).
+
+## Serial Protocol
+
+The device streams newline-delimited JSON, one packet per fader change:
+
+```json
+{ "Channel": 0, "Voltage": 2.50, "Percentage": 50.0 }
+```
+
+It also responds to these commands from the driver:
+
+- `ID?\n` → identify/handshake, used for USB auto-detection:
+
+  ```json
+  { "Device": "AudioMixer", "Signature": "AudioMixer", "Protocol": 1, "Faders": 5, "Hysteresis": 3, "Firmware": "2.0.0" }
+  ```
+
+  `Device` is the user-editable name, and `Signature` is a constant the driver
+  matches on, so auto-detection keeps working even after a rename.
+
+- `SYNC\n` → immediately resend the current value of every fader (sent by the
+  driver on connect).
+
+- `FADERS=n\n` → set the number of faders (1-8, one per ADC channel) and
+  **persist it to the device's EEPROM**, then re-identify. Sent when you add or
+  remove a fader with the **＋ Add** / **Remove fader** buttons, so the count
+  survives power cycles.
+
+- `NAME=x\n` → set the device's display name (up to 15 characters) and
+  **persist it to EEPROM**, then re-identify. Sent by the **Rename** box in the
+  settings menu.
+
+- `HYST=n\n` → set the hysteresis / jitter-filter threshold in ADC counts
+  (1-64) and **persist it to EEPROM**, then re-identify. Raise it if a slider's
+  reading drifts while idle, or lower it for more responsiveness. Sent by the
+  **Jitter filter** slider in the settings menu.
 
 ## Running the Application
 
-The download for the audio driver can be found in the **[Releases](https://github.com/Bowhza/Audio-Mixer/releases/)** section. Though you can complie the application yourself from the source code (`.NET Framework 4.8.1` is required) found [here](https://github.com/Bowhza/Audio-Mixer/tree/main/Audio-Driver).
+The download for the audio driver can be found in the **[Releases](https://github.com/Bowhza/Audio-Mixer/releases/)** section. You can also build it yourself from the source in [`AudioMixer/`](https://github.com/Bowhza/Audio-Mixer/tree/main/AudioMixer) (the **.NET 10 SDK** is required):
+
+```bash
+cd AudioMixer
+dotnet run -c Release
+```
+
+To produce a standalone executable:
+
+```bash
+dotnet publish -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
 
 ### Flashing the Code
 
-To flash the code to the microcontroller, the Platform-IO IDE [extension](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide) is required for VSCode.
+> **Quickest option:** open the driver's **⚙ settings → Firmware → Flash
+> firmware**. The app ships with `avrdude` and the compiled `firmware.hex` and
+> flashes the connected board for you (no PlatformIO needed).
+
+To build and flash the firmware yourself, the Platform-IO IDE [extension](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide) is required for VSCode.
 
 Once the extenstion is installed and your microcontroller is connected to your computer follow the steps below:
 
@@ -130,7 +211,16 @@ Things that can be improved, added or fixed:
 - [x] Add functionality for the `!` wildcard.
 - [x] Add auto config creation if one does not exist.
 - [x] Improve code to account for hysteresis.
-- [ ] Add device configuration over serial for options like the hysteresis threshold.
+- [x] Auto-detect the device over USB (`ID?` handshake).
+- [x] Report current slider states on connect (`SYNC`).
+- [x] Calibrate slider ranges from the GUI.
+- [x] Modernize the desktop app (Avalonia / .NET 10).
+- [x] Configure the device over serial: fader count (`FADERS=`) and name
+      (`NAME=`), persisted to the device's EEPROM.
+- [x] Add / remove faders from the app.
+- [x] Rename the device from the app.
+- [x] Flash the firmware from inside the app.
+- [x] Make the hysteresis threshold configurable over serial (`HYST=`, EEPROM).
 - [ ] Add support for SSD1306 OLED to display various information on the mixer.
 - [ ] Add support for linux.
 - [ ] Other features...
