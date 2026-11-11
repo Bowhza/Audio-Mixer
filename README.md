@@ -11,7 +11,7 @@ This project should work on devices using the **ATMega328p MCU**, this includes 
 The materials required:
 
 - Compatible microcontroller.
-- Potentiomenters (Fader recommended).
+- Potentiometers (faders recommended).
 - Wire.
 - Breadboard (Optional but recommended).
 
@@ -39,28 +39,49 @@ Here is an assembled breadboard prototype with 5 sliders all connected to the **
 **Desktop Application**
 
 The driver is a modern **Avalonia (.NET 10)** app (`AudioMixer/`) with a dark
-interface and a vertical fader console. It:
-
-- **Auto-detects the mixer over USB**: scans serial ports, prefers known
-  USB-serial bridges (CH340 / FTDI / Arduino / CP210x), confirms the device with
-  an `ID?` handshake, and reconnects automatically on hot-plug.
-- **Assigns apps by clicking a fader**: click a fader's target to pick from a
-  list of the wildcards plus every app currently playing audio, each with its
-  icon. The chosen app's icon and name show on the fader.
-- **Shows live levels** on vertical bars with a fixed green → red gradient.
-- **Calibrates each slider**: a guided mode maps a slider's real travel onto a
-  clean 0-100% (handy when a pot doesn't swing the full range).
-- **Adds / removes faders**, **renames the device**, and **tunes the jitter
-  filter**: all stored on the device's EEPROM (see the Serial Protocol below),
-  so they survive power cycles.
-- **Flashes the firmware** from the settings menu, with `avrdude` and the
-  firmware image bundled (no toolchain required).
-- **Syncs on connect**: asks the device for every slider's current position so
-  volumes and the UI match the hardware immediately.
-- Builds its fader rows dynamically from the device, runs in the system tray,
-  and keeps the same `config.json` format as before.
+interface and a vertical fader console. It has two pages, **Mixer** and
+**Settings**, and lives in the system tray.
 
 ![Image of the audio driver application interface](/assets/Audio-Driver.png)
+
+**Mixer page**
+
+- **Assign apps by clicking a fader**: click a fader's target to pick from the
+  wildcards plus every app currently playing audio, each with its icon. Apps
+  that are assigned but closed stay listed as "(not running)".
+- **Live levels** on vertical meters with a fixed green → red gradient.
+- **Mute** any fader with one click. Its target is held at 0% while the slider
+  keeps tracking, and unmuting restores the slider's level.
+- **Calibrate** maps each slider's real travel onto a clean 0-100% (handy when
+  a pot doesn't swing the full range). Each fader shows the range it has
+  captured, and audio is left untouched until you finish.
+- **Add / Remove faders** (1-8, one per ADC channel). The count is stored on
+  the mixer, and the window resizes itself to fit.
+
+**Settings page**
+
+- **Connection**: find the mixer automatically or pick a port, and set the baud
+  rate. These save as soon as you change them.
+- **Mixer**: rename the device and tune the jitter filter. Both are stored on
+  the mixer's EEPROM, and **Apply** only enables when your value differs from
+  the device's.
+- **Firmware**: shows the device's and the bundled firmware versions, and
+  flashes the firmware with the bundled `avrdude` (no toolchain required).
+
+**Under the hood**
+
+- **USB auto-detection**: scans serial ports (skipping Bluetooth ones), prefers
+  known USB-serial bridges (CH340 / FTDI / Arduino / CP210x / PL2303), confirms
+  the device with an `ID?` handshake, and reconnects automatically when the
+  mixer is unplugged and plugged back in.
+- **Verified settings**: fader count, name and jitter filter changes are only
+  reported as saved once the mixer echoes them back, and are retried otherwise.
+- **Syncs on connect**: asks the mixer for every slider's position so volumes
+  and the UI match the hardware immediately.
+- **Firmware update notice**: when the bundled firmware is newer than the
+  mixer's, the top bar offers a one-click install.
+- **Single instance**: launching the app again brings the running window to the
+  front instead of opening a second copy that would fight over the COM port.
 
 ## Configuration File
 
@@ -81,8 +102,13 @@ The following is the configuration JSON file that is stored in the same director
 
 - `AutoDetect`: when `true`, the driver finds and connects to the mixer on its
   own. When `false` it uses `COMPort`.
+- `Applications`: what each fader controls, in fader order (see Wildcards
+  below). An empty string means unassigned.
 - `Calibration`: per-fader input range captured by the **Calibrate** button
   (maps each slider's real travel onto 0-100%). Optional.
+
+Connection settings are saved as soon as you change them on the Settings page.
+Fader assignments and calibration are saved with the **Save** button.
 
 ### Wildcards
 
@@ -92,8 +118,8 @@ Wildcards are used to assign multiple applications to the same slider.
 - `-` Controls all applications that are not assigned to a slider.
 - `!` Current Active Window/Fullscreen Window.
 
-To assign a specific application to a slider, just pick it from that fader's
-dropdown (it lists every app in the "Detected Sessions" list).
+To assign a specific application to a slider, click that fader's target and
+pick the app (the list includes every app shown under "Playing now").
 
 ## Serial Protocol
 
@@ -108,28 +134,39 @@ It also responds to these commands from the driver:
 - `ID?\n` → identify/handshake, used for USB auto-detection:
 
   ```json
-  { "Device": "AudioMixer", "Signature": "AudioMixer", "Protocol": 1, "Faders": 5, "Hysteresis": 3, "Firmware": "2.0.0" }
+  { "Device": "AudioMixer", "Signature": "AudioMixer", "Protocol": 1, "Faders": 5, "Hysteresis": 3, "Firmware": "2.0.2" }
   ```
 
   `Device` is the user-editable name, and `Signature` is a constant the driver
-  matches on, so auto-detection keeps working even after a rename.
+  matches on, so auto-detection keeps working even after a rename. The device
+  also sends this line once on boot.
 
 - `SYNC\n` → immediately resend the current value of every fader (sent by the
-  driver on connect).
+  driver on connect). The firmware also sends every fader once after booting.
 
 - `FADERS=n\n` → set the number of faders (1-8, one per ADC channel) and
   **persist it to the device's EEPROM**, then re-identify. Sent when you add or
-  remove a fader with the **＋ Add** / **Remove fader** buttons, so the count
-  survives power cycles.
+  remove a fader with the **Add** / **Remove** buttons, so the count survives
+  power cycles.
 
 - `NAME=x\n` → set the device's display name (up to 15 characters) and
-  **persist it to EEPROM**, then re-identify. Sent by the **Rename** box in the
-  settings menu.
+  **persist it to EEPROM**, then re-identify. Sent by **Settings → Mixer →
+  Name**.
 
 - `HYST=n\n` → set the hysteresis / jitter-filter threshold in ADC counts
   (1-64) and **persist it to EEPROM**, then re-identify. Raise it if a slider's
-  reading drifts while idle, or lower it for more responsiveness. Sent by the
-  **Jitter filter** slider in the settings menu.
+  reading drifts while idle, or lower it for more responsiveness. Sent by
+  **Settings → Mixer → Jitter filter**.
+
+Every write command is answered with the identify line, which the driver uses
+to confirm the change (and retries if it doesn't match). Malformed values are
+ignored rather than applied. Incoming bytes are buffered by a USART receive
+interrupt, so commands aren't lost while the mixer is busy sending readings.
+
+**Firmware version**: the version is stored in the flash image as the text
+`AMFW-VERSION:x.y.z`. The driver reads it from the bundled `firmware.hex` and
+compares it with the `Firmware` field above to decide whether an update is
+available. To release a new firmware, bump `FW_VERSION` in `src/main.c`.
 
 ## Running the Application
 
@@ -149,35 +186,36 @@ dotnet publish -c Release -r win-x64 --self-contained true \
 
 ### Flashing the Code
 
-> **Quickest option:** open the driver's **⚙ settings → Firmware → Flash
-> firmware**. The app ships with `avrdude` and the compiled `firmware.hex` and
-> flashes the connected board for you (no PlatformIO needed).
+> **Quickest option:** open the driver's **Settings → Firmware** and click
+> **Reflash** (or **Install update** when a newer firmware is available). The
+> app ships with `avrdude` and the compiled `firmware.hex` and flashes the
+> connected board for you (no PlatformIO needed).
 
 To build and flash the firmware yourself, the Platform-IO IDE [extension](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide) is required for VSCode.
 
-Once the extenstion is installed and your microcontroller is connected to your computer follow the steps below:
+Once the extension is installed and your microcontroller is connected to your computer follow the steps below:
 
 1. Click on the Platform-IO Icon on the sidebar. Followed by the "`Pick a folder`" button to open the project folder.
 
 ![Image of the sidebar](/assets/Platform-IO.png)
 
-2. Navigate to where the project folder is downloaded, make sure that it is exctracted from the zip file.
+2. Navigate to where the project folder is downloaded, make sure that it is extracted from the zip file.
 
 ![Image of the open folder file explorer](/assets/Open-Folder.png)
 
 3. Select the folder and press `Select Folder` in the bottom right corner.
 
-4. With the folder open, press `Ctrl + Shift + B` to open the command pallette and select `PlatformIO: Build`.
+4. With the folder open, press `Ctrl + Shift + B` to open the command palette and select `PlatformIO: Build`.
 
 ![Image of the command window open in VSCode](/assets/Build-Project.png)
 
 5. If the project has built successfully, you will see a clear message in the terminal. You can continue to the next step.
 
-6. Press `Ctrl + ALT + U` to upload the code to the microcontroller. Below is an image it the process completed successfully.
+6. Press `Ctrl + ALT + U` to upload the code to the microcontroller. Below is an image of the process completing successfully.
 
 ![Image of the upload success](/assets/Upload-Success.png)
 
-7. The code is now flashed to the device, and you can run the provided executable.
+7. The code is now flashed to the device, and you can run the desktop app.
 
 ### Changing the board
 
@@ -221,6 +259,10 @@ Things that can be improved, added or fixed:
 - [x] Rename the device from the app.
 - [x] Flash the firmware from inside the app.
 - [x] Make the hysteresis threshold configurable over serial (`HYST=`, EEPROM).
+- [x] Per-fader mute.
+- [x] Firmware update notice and one-click install.
+- [x] Verify settings writes against the device's echo.
+- [x] Prevent multiple app instances from fighting over the COM port.
 - [ ] Add support for SSD1306 OLED to display various information on the mixer.
 - [ ] Add support for linux.
 - [ ] Other features...
