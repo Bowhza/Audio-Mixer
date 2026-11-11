@@ -2,6 +2,7 @@
 #include "util/delay.h"
 #include "avr/interrupt.h"
 #include "avr/eeprom.h"
+#include "avr/pgmspace.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
@@ -26,10 +27,16 @@
 // Firmware / protocol identity. The driver matches on the constant SIGNATURE
 // (never user-editable) so auto-detection keeps working even after a rename.
 // The DEVICE name below is just a friendly label the user can change.
-#define FW_VERSION "2.0.0"
+#define FW_VERSION "2.0.2"
 #define FW_PROTOCOL 1
 #define FW_SIGNATURE "AudioMixer"
 #define FW_DEFAULT_NAME "AudioMixer"
+
+// Version tag embedded in the flash image. The desktop app scans the bundled
+// firmware.hex for "AMFW-VERSION:" to learn which version it can flash, and
+// compares that with the version the connected device reports.
+// PROGMEM keeps it out of RAM. "used" stops the linker from discarding it.
+const char FirmwareTag[] PROGMEM __attribute__((used)) = "AMFW-VERSION:" FW_VERSION;
 
 // Maximum device-name length (excluding the null terminator).
 #define NAME_MAX_LEN 15
@@ -115,9 +122,32 @@ void SaveFaderCount(uint8_t n)
     eeprom_update_byte(&ee_fader_count, n);
     eeprom_update_byte(&ee_magic, EE_MAGIC);
 
-    // Keep the scan index in range if the count shrank.
+    // Keep the scan index in range if the count shrank, and point the ADC mux
+    // at it so the next reading is not attributed to the wrong channel.
     if (Channel > FaderCount - 1)
+    {
         Channel = 0;
+        ADC_SetChannel(Channel);
+    }
+}
+
+// Parses a small unsigned decimal number. Returns -1 when the text is empty or
+// contains anything but digits, so a corrupted command is ignored rather than
+// being clamped into a "valid" but wrong value.
+int ParseNumber(const char *s)
+{
+    int value = 0;
+    if (*s == '\0')
+        return -1;
+    for (; *s != '\0'; s++)
+    {
+        if (*s < '0' || *s > '9')
+            return -1;
+        value = value * 10 + (*s - '0');
+        if (value > 255)
+            return -1;
+    }
+    return value;
 }
 
 // Persists a new device name to EEPROM.
@@ -144,9 +174,17 @@ void SaveHysteresis(uint8_t n)
 // Sends the identify/handshake response so the driver can recognize the device.
 void SendIdentify(void)
 {
+    // avr-libc's %S means "string in program memory". GCC assumes the standard
+    // wchar_t meaning and warns, so silence that one check here.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
     sprintf(ADCStr,
-            "{\"Device\": \"%s\", \"Signature\": \"%s\", \"Protocol\": %d, \"Faders\": %d, \"Hysteresis\": %d, \"Firmware\": \"%s\"}\n",
-            DeviceName, FW_SIGNATURE, FW_PROTOCOL, FaderCount, Hysteresis, FW_VERSION);
+            "{\"Device\": \"%s\", \"Signature\": \"%s\", \"Protocol\": %d, \"Faders\": %d, \"Hysteresis\": %d, \"Firmware\": \"%S\"}\n",
+            DeviceName, FW_SIGNATURE, FW_PROTOCOL, FaderCount, Hysteresis,
+            // %S prints a program-memory string: the version part of FirmwareTag.
+            // Reading it here also keeps the tag in the image for the app to find.
+            FirmwareTag + (sizeof("AMFW-VERSION:") - 1));
+#pragma GCC diagnostic pop
     Serial_Tx(ADCStr);
 }
 
@@ -174,6 +212,8 @@ void SendAllChannels(void)
         SendChannel(i);
 }
 
+void HandleByte(unsigned char byte);
+
 // Polls the serial port for an incoming command line (non-blocking) and acts on
 // it once a full line is received. Handles "ID?", "SYNC", "FADERS=n", "NAME=x".
 void PollCommands(void)
@@ -181,9 +221,14 @@ void PollCommands(void)
     unsigned char byte;
 
     // Serial_RxByte returns 0 when a byte was read, 1 when nothing is waiting.
-    if (Serial_RxByte(&byte) != 0)
-        return;
+    // Drain everything the RX interrupt has buffered so far.
+    while (Serial_RxByte(&byte) == 0)
+        HandleByte(byte);
+}
 
+// Accumulates one received byte and dispatches a command on end of line.
+void HandleByte(unsigned char byte)
+{
     // End of a command line: terminate, dispatch, and reset the buffer.
     if (byte == '\n' || byte == '\r')
     {
@@ -195,7 +240,10 @@ void PollCommands(void)
             SendAllChannels();
         else if (strncmp(RxBuffer, "FADERS=", 7) == 0)
         {
-            SaveFaderCount((uint8_t)atoi(RxBuffer + 7));
+            int n = ParseNumber(RxBuffer + 7);
+            if (n >= MIN_FADER_COUNT && n <= MAX_FADER_COUNT)
+                SaveFaderCount((uint8_t)n);
+            // Always reply so the driver can confirm what is actually stored.
             SendIdentify();
         }
         else if (strncmp(RxBuffer, "NAME=", 5) == 0)
@@ -205,7 +253,9 @@ void PollCommands(void)
         }
         else if (strncmp(RxBuffer, "HYST=", 5) == 0)
         {
-            SaveHysteresis((uint8_t)atoi(RxBuffer + 5));
+            int n = ParseNumber(RxBuffer + 5);
+            if (n >= 0)
+                SaveHysteresis((uint8_t)n);
             SendIdentify();
         }
 
@@ -213,7 +263,7 @@ void PollCommands(void)
         return;
     }
 
-    // Accumulate the byte, guarding against overflow (drop the oldest on overrun).
+    // Accumulate the byte, guarding against overflow (discard the line on overrun).
     if (RxIndex < RX_BUFFER_SIZE - 1)
         RxBuffer[RxIndex++] = byte;
     else
@@ -222,21 +272,25 @@ void PollCommands(void)
 
 int main()
 {
-    // Enable Interrupts
-    // Currently not required
-    // sei();
-
     // Restore saved settings before anything else.
     LoadSettings();
 
     // Initialize Serial Communication
     Serial_Init();
+    // Enable interrupts (the USART receive interrupt buffers incoming commands)
+    sei();
     // Initialize Analog to Digital Converter
     ADC_Init(IDIS);
 
     // Announce ourselves once on boot so a driver that is already listening can
     // detect the device immediately without having to send a query first.
     SendIdentify();
+
+    // Start every stored reading far outside the ADC range (0..1023) so the first
+    // pass of the loop always transmits each fader's real position. Otherwise a
+    // slider sitting within the hysteresis of 0 is never sent until it jitters.
+    for (unsigned char i = 0; i < MAX_FADER_COUNT; i++)
+        ADC_Values[i] = -2048;
 
     // Main Loop
     while (1)

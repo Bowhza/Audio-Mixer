@@ -14,9 +14,9 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
-    <!-- Shipped next to the exe so the app can flash the device via avrdude. -->
+    <!-- firmware.hex ships loose next to the exe (small, not an executable, so
+         it is not pulled into a single-file bundle). -->
     <None Include="firmware.hex" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="avrdude\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Keep the bundled firmware.hex in sync with the latest PlatformIO build,
@@ -26,6 +26,23 @@
           DestinationFiles="firmware.hex"
           SkipUnchangedFiles="true"
           Condition="Exists('..\.pio\build\ATmega328P\firmware.hex')" />
+  </Target>
+
+  <!-- Copy avrdude beside the app as loose files. Done via a target (not a
+       content item) so avrdude.exe is never swallowed into a single-file
+       bundle, and FirmwareService can find and run it on disk. -->
+  <ItemGroup>
+    <AvrdudeFiles Include="avrdude\**" />
+  </ItemGroup>
+  <Target Name="CopyAvrdudeToOutput" AfterTargets="Build">
+    <Copy SourceFiles="@(AvrdudeFiles)"
+          DestinationFiles="@(AvrdudeFiles->'$(OutDir)avrdude\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyAvrdudeToPublish" AfterTargets="Publish">
+    <Copy SourceFiles="@(AvrdudeFiles)"
+          DestinationFiles="@(AvrdudeFiles->'$(PublishDir)avrdude\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 
   <ItemGroup>

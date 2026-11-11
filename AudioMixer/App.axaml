@@ -8,126 +8,426 @@
         <local:ViewLocator/>
     </Application.DataTemplates>
 
+    <!--
+      Design tokens (dark only).
+      - Surfaces rise in lightness with elevation: Page < Surface1 (cards) <
+        Surface2 (raised tiles, inputs, panels) < Surface3 (hover).
+      - Text is off-white, never pure white. Secondary/tertiary text all clear
+        4.5:1 on Surface1.
+      - Status colours are used as soft tints + coloured text/dots, never as a
+        large solid fill, so they inform without shouting. One solid accent
+        button per view.
+      - Spacing scale: 4 / 8 / 16 / 24 / 32. Type scale: 12 / 14 / 16 / 20 / 28.
+    -->
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Dark-only palette -->
-            <SolidColorBrush x:Key="PageBackground" Color="#121320"/>
-            <SolidColorBrush x:Key="CardBackground" Color="#1C1E2B"/>
-            <SolidColorBrush x:Key="CardBackgroundAlt" Color="#171825"/>
-            <SolidColorBrush x:Key="CardBorder" Color="#2C2F42"/>
-            <SolidColorBrush x:Key="SubtleText" Color="#9AA0B4"/>
-            <SolidColorBrush x:Key="StrongText" Color="#F2F3F8"/>
-            <SolidColorBrush x:Key="TrackBackground" Color="#2A2D3E"/>
-            <SolidColorBrush x:Key="AccentBrush" Color="#5B8DEF"/>
-            <SolidColorBrush x:Key="BadgeBackground" Color="#262940"/>
-            <SolidColorBrush x:Key="ConnectedBrush" Color="#2FBF71"/>
-            <SolidColorBrush x:Key="DisconnectedBrush" Color="#E0564B"/>
+            <!-- Surfaces -->
+            <SolidColorBrush x:Key="PageBackground" Color="#0F1117"/>
+            <SolidColorBrush x:Key="Surface1" Color="#171A23"/>
+            <SolidColorBrush x:Key="Surface2" Color="#1F232E"/>
+            <SolidColorBrush x:Key="Surface3" Color="#282D3A"/>
+            <SolidColorBrush x:Key="BorderSubtle" Color="#14FFFFFF"/>
 
-            <!-- Volume bar fill: green most of the way, yellow high, red only in the
-                 top ~15% (so a partly-filled bar never shows red at its tip). -->
+            <!-- Fully transparent versions of the hover colours. Resting buttons use
+                 these instead of "Transparent" (= transparent WHITE): fading from
+                 transparent white to a dark colour passes through a light grey and
+                 flashes. Fading from a transparent copy of the same hue doesn't. -->
+            <SolidColorBrush x:Key="ClearSurface1" Color="#00171A23"/>
+            <SolidColorBrush x:Key="ClearSurface2" Color="#001F232E"/>
+            <SolidColorBrush x:Key="ClearSurface3" Color="#00282D3A"/>
+            <SolidColorBrush x:Key="ClearAccent" Color="#008DB1FF"/>
+            <SolidColorBrush x:Key="BorderStrong" Color="#26FFFFFF"/>
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="TextPrimary" Color="#E8EAF0"/>
+            <SolidColorBrush x:Key="TextSecondary" Color="#A3A9B8"/>
+            <SolidColorBrush x:Key="TextTertiary" Color="#8890A6"/>
+
+            <!-- Accent: deep fill for white-text buttons, light tone for accent text -->
+            <SolidColorBrush x:Key="Accent" Color="#3D6FE0"/>
+            <SolidColorBrush x:Key="AccentHover" Color="#4A7BEA"/>
+            <SolidColorBrush x:Key="AccentPressed" Color="#3462CC"/>
+            <SolidColorBrush x:Key="AccentText" Color="#8DB1FF"/>
+            <SolidColorBrush x:Key="AccentSoft" Color="#1F8DB1FF"/>
+
+            <!-- Status (text/dot colour + soft tint) -->
+            <SolidColorBrush x:Key="Success" Color="#4ADE96"/>
+            <SolidColorBrush x:Key="SuccessSoft" Color="#1A4ADE96"/>
+            <SolidColorBrush x:Key="Danger" Color="#F87171"/>
+            <SolidColorBrush x:Key="DangerSoft" Color="#1AF87171"/>
+            <SolidColorBrush x:Key="Warning" Color="#F5B94A"/>
+            <SolidColorBrush x:Key="WarningSoft" Color="#1FF5B94A"/>
+
+            <!-- Meter -->
+            <SolidColorBrush x:Key="TrackBackground" Color="#232836"/>
+            <SolidColorBrush x:Key="MeterTick" Color="#12FFFFFF"/>
+            <!-- Green most of the way, amber high, red only in the top ~15%, so a
+                 partly filled bar never shows red at its tip. Slightly desaturated
+                 for a dark background. -->
             <LinearGradientBrush x:Key="FaderFill" StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Offset="0.0" Color="#E0564B"/>
-                <GradientStop Offset="0.15" Color="#E8954B"/>
-                <GradientStop Offset="0.32" Color="#E7C94B"/>
-                <GradientStop Offset="0.55" Color="#6BC357"/>
-                <GradientStop Offset="1.0" Color="#2FBF71"/>
+                <GradientStop Offset="0.0" Color="#F07A6E"/>
+                <GradientStop Offset="0.15" Color="#F0A35E"/>
+                <GradientStop Offset="0.32" Color="#E9CB62"/>
+                <GradientStop Offset="0.55" Color="#7DCB6A"/>
+                <GradientStop Offset="1.0" Color="#3FC487"/>
             </LinearGradientBrush>
+
+            <!-- Legacy keys still referenced from code / older markup -->
+            <StaticResource x:Key="CardBackground" ResourceKey="Surface1"/>
+            <StaticResource x:Key="CardBorder" ResourceKey="BorderSubtle"/>
+            <StaticResource x:Key="StrongText" ResourceKey="TextPrimary"/>
+            <StaticResource x:Key="SubtleText" ResourceKey="TextSecondary"/>
+            <StaticResource x:Key="AccentBrush" ResourceKey="Accent"/>
+
+            <!-- Icon font (Segoe Fluent Icons on Win 11, MDL2 Assets on Win 10) -->
+            <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+            <!-- Fluent theme overrides so stock controls match the tokens -->
+            <Color x:Key="SystemAccentColor">#3D6FE0</Color>
+            <Color x:Key="SystemAccentColorDark1">#3462CC</Color>
+            <Color x:Key="SystemAccentColorDark2">#2A55B8</Color>
+            <Color x:Key="SystemAccentColorLight1">#4A7BEA</Color>
+            <Color x:Key="SystemAccentColorLight2">#6C94F0</Color>
+            <Color x:Key="SystemAccentColorLight3">#8DB1FF</Color>
+            <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+            <CornerRadius x:Key="OverlayCornerRadius">12</CornerRadius>
+
+            <StaticResource x:Key="ButtonBackground" ResourceKey="Surface2"/>
+            <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="Surface3"/>
+            <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="Surface1"/>
+            <StaticResource x:Key="ButtonForeground" ResourceKey="TextPrimary"/>
+            <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="TextPrimary"/>
+            <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="TextSecondary"/>
+            <StaticResource x:Key="ButtonBorderBrush" ResourceKey="BorderSubtle"/>
+            <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="BorderStrong"/>
+            <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="BorderSubtle"/>
+
+            <StaticResource x:Key="TextControlBackground" ResourceKey="Surface1"/>
+            <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="Surface1"/>
+            <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="PageBackground"/>
+            <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderStrong"/>
+            <StaticResource x:Key="ComboBoxBackground" ResourceKey="Surface1"/>
+            <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="Surface3"/>
+            <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="BorderStrong"/>
+            <StaticResource x:Key="FlyoutPresenterBackground" ResourceKey="Surface2"/>
+            <StaticResource x:Key="FlyoutBorderThemeBrush" ResourceKey="BorderStrong"/>
         </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />
 
-        <Style Selector="Border.card">
-            <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="16"/>
+        <!-- ===== Typography ===== -->
+        <Style Selector="TextBlock.display">   <!-- live readouts -->
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
         </Style>
-
-        <!-- Vertical fader strip -->
-        <Style Selector="Border.fader">
-            <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="14"/>
-            <Setter Property="Padding" Value="12"/>
-            <Setter Property="Width" Value="152"/>
-            <Setter Property="Margin" Value="0,0,12,0"/>
-        </Style>
-
-        <Style Selector="Border.badge">
-            <Setter Property="Background" Value="{DynamicResource BadgeBackground}"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="8,2"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-
-        <Style Selector="Border.pill">
-            <Setter Property="CornerRadius" Value="999"/>
-            <Setter Property="Padding" Value="12,5"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-
         <Style Selector="TextBlock.h1">
             <Setter Property="FontSize" Value="20"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{DynamicResource StrongText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
         </Style>
         <Style Selector="TextBlock.h2">
-            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{DynamicResource StrongText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+        </Style>
+        <Style Selector="TextBlock.body">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
         </Style>
         <Style Selector="TextBlock.subtle">
-            <Setter Property="Foreground" Value="{DynamicResource SubtleText}"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+        </Style>
+        <Style Selector="TextBlock.eyebrow">  <!-- small section labels -->
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiary}"/>
+        </Style>
+        <Style Selector="TextBlock.icon">
+            <Setter Property="FontFamily" Value="{DynamicResource IconFont}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
 
-        <!-- Clickable "assign target" on each fader -->
-        <Style Selector="Button.assign">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundAlt}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
+        <!-- ===== Containers ===== -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource Surface1}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+
+        <Style Selector="Border.fader">
+            <Setter Property="Background" Value="{DynamicResource Surface1}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Width" Value="160"/>
+            <Setter Property="Margin" Value="0,0,16,0"/>
+        </Style>
+
+        <!-- Status chips: soft tint + coloured dot + readable label -->
+        <Style Selector="Border.chip">
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.chip.success">
+            <Setter Property="Background" Value="{DynamicResource SuccessSoft}"/>
+            <Setter Property="BorderBrush" Value="#334ADE96"/>
+        </Style>
+        <Style Selector="Border.chip.danger">
+            <Setter Property="Background" Value="{DynamicResource DangerSoft}"/>
+            <Setter Property="BorderBrush" Value="#33F87171"/>
+        </Style>
+        <Style Selector="Border.chip.accent">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft}"/>
+            <Setter Property="BorderBrush" Value="#408DB1FF"/>
+        </Style>
+        <Style Selector="Ellipse.dot">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- ===== Buttons ===== -->
+        <!-- Smooth hover/press colour changes on every button -->
+        <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- The single primary action per view -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource Accent}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentHover}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentPressed}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiary}"/>
+        </Style>
+
+        <!-- Quiet actions: no fill until hovered -->
+        <Style Selector="Button.ghost">
+            <Setter Property="Background" Value="{DynamicResource ClearSurface3}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+        </Style>
+        <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+
+        <!-- Accent-text action inside an accent chip -->
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="{DynamicResource ClearAccent}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+
+        <!-- Square icon buttons (40x40 hit target) -->
+        <Style Selector="Button.iconbtn">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+
+        <!-- Fader "assign target" tile -->
+        <Style Selector="Button.assign">
+            <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="8"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="Button.assign:pointerover /template/ ContentPresenter">
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-        </Style>
-
-        <!-- Vertical volume bar (fills the available height) -->
-        <Style Selector="ProgressBar.vfader">
-            <Setter Property="Orientation" Value="Vertical"/>
-            <Setter Property="Minimum" Value="0"/>
-            <Setter Property="Maximum" Value="100"/>
-            <Setter Property="Width" Value="16"/>
-            <Setter Property="MinHeight" Value="120"/>
-            <Setter Property="VerticalAlignment" Value="Stretch"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Foreground" Value="{DynamicResource FaderFill}"/>
-            <Setter Property="Background" Value="{DynamicResource TrackBackground}"/>
+        <Style Selector="Button.assign:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentText}"/>
         </Style>
 
-        <!-- "Add fader" strip -->
-        <Style Selector="Button.addfader">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
-            <Setter Property="BorderThickness" Value="2"/>
-            <Setter Property="CornerRadius" Value="14"/>
-            <Setter Property="Width" Value="84"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="VerticalAlignment" Value="Stretch"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <!-- Per-fader mute toggle. Muted is amber (attention), not red (error). -->
+        <Style Selector="Button.mute">
+            <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="Foreground" Value="{DynamicResource SubtleText}"/>
         </Style>
-        <Style Selector="Button.addfader:pointerover /template/ ContentPresenter">
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Style Selector="Button.mute.muted">
+            <Setter Property="Background" Value="{DynamicResource WarningSoft}"/>
+            <Setter Property="BorderBrush" Value="#59F5B94A"/>
+            <Setter Property="Foreground" Value="{DynamicResource Warning}"/>
+        </Style>
+        <Style Selector="Button.mute.muted:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2EF5B94A"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Warning}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Warning}"/>
+        </Style>
+
+        <!-- Add / remove fader tiles, beside the faders they act on -->
+        <Style Selector="Button.tile">
+            <Setter Property="Background" Value="{DynamicResource ClearSurface1}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Width" Value="96"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+        </Style>
+        <Style Selector="Button.tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface1}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentText}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+        </Style>
+
+        <!-- At a limit (8 faders max / 1 min) the tile greys out but keeps its space -->
+        <Style Selector="Button.tile:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ClearSurface1}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiary}"/>
+        </Style>
+        <Style Selector="Button.tile:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+
+        <!-- Mixer | Settings page switch (segmented control) -->
+        <Style Selector="Border.segmented">
+            <Setter Property="Background" Value="{DynamicResource Surface1}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+        <Style Selector="Button.seg">
+            <Setter Property="Background" Value="{DynamicResource ClearSurface2}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="MinWidth" Value="104"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.seg:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.seg.selected">
+            <Setter Property="Background" Value="{DynamicResource Surface3}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.seg.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3}"/>
+        </Style>
+
+        <!-- Pressed states. Without these, Fluent's default pressed colour (a darker
+             surface) briefly jumps in on press. Each stays in its own hover hue. -->
+        <Style Selector="Button.ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.link:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.seg:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.assign:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentText}"/>
+        </Style>
+        <Style Selector="Button.tile:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentText}"/>
+        </Style>
+        <Style Selector="Button.mute:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3}"/>
+        </Style>
+        <Style Selector="Button.mute.muted:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#3DF5B94A"/>
+            <Setter Property="Foreground" Value="{DynamicResource Warning}"/>
+        </Style>
+
+        <!-- Fader strip while calibrating: accent outline marks the mode -->
+        <Style Selector="Border.fader.calibrating">
+            <Setter Property="BorderBrush" Value="#668DB1FF"/>
+        </Style>
+
+        <!-- Settings page: one card per section, rows divided by hairlines -->
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource Surface1}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+        </Style>
+        <Style Selector="Grid.setting-row">
+            <Setter Property="MinHeight" Value="72"/>
+            <Setter Property="Margin" Value="16,12"/>
+        </Style>
+        <Style Selector="Border.row-divider">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource BorderSubtle}"/>
+        </Style>
+        <Style Selector="TextBlock.row-title">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+        </Style>
+
+        <!-- Session list rows -->
+        <Style Selector="ListBox.sessions ListBoxItem">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
     </Application.Styles>
 </Application>

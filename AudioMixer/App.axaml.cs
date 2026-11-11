@@ -45,6 +45,10 @@ public partial class App : Application
             desktop.Exit += (_, _) => _viewModel?.Dispose();
 
             SetupTrayIcon(desktop);
+
+            // A second launch of the app asks this one to show its window.
+            Services.SingleInstance.ListenForShowRequests(
+                () => Avalonia.Threading.Dispatcher.UIThread.Post(ShowWindow));
         }
 
         base.OnFrameworkInitializationCompleted();

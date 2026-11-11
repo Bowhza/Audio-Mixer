@@ -34,6 +34,112 @@ public sealed class FirmwareService
 
     public bool IsAvailable => FindHex() != null;
 
+    private const string VersionTag = "AMFW-VERSION:";
+    private string? _bundledVersion;
+    private bool _bundledVersionRead;
+
+    /// <summary>
+    /// Version of the bundled firmware.hex, read from the "AMFW-VERSION:x.y.z"
+    /// tag the firmware embeds in its flash image. Null if the file is missing or
+    /// predates the tag. Cached after the first read.
+    /// </summary>
+    public string? BundledVersion
+    {
+        get
+        {
+            if (!_bundledVersionRead)
+            {
+                _bundledVersion = ReadVersionFromHex(FindHex());
+                _bundledVersionRead = true;
+            }
+            return _bundledVersion;
+        }
+    }
+
+    private static string? ReadVersionFromHex(string? path)
+    {
+        if (path == null)
+            return null;
+        try
+        {
+            byte[] image = DecodeIntelHex(File.ReadAllLines(path));
+            string text = System.Text.Encoding.ASCII.GetString(image);
+            int i = text.IndexOf(VersionTag, StringComparison.Ordinal);
+            if (i < 0)
+                return null;
+            i += VersionTag.Length;
+            int end = i;
+            while (end < text.Length && text[end] != '\0' && end - i < 32)
+                end++;
+            string version = text[i..end].Trim();
+            return version.Length > 0 ? version : null;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[FirmwareService] Reading firmware version failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Flattens an Intel HEX file's data records into a byte image.</summary>
+    private static byte[] DecodeIntelHex(IEnumerable<string> lines)
+    {
+        var image = new SortedDictionary<long, byte>();
+        long baseAddress = 0;
+
+        foreach (string raw in lines)
+        {
+            string line = raw.Trim();
+            if (line.Length < 11 || line[0] != ':')
+                continue;
+
+            int count = Convert.ToInt32(line.Substring(1, 2), 16);
+            int address = Convert.ToInt32(line.Substring(3, 4), 16);
+            int type = Convert.ToInt32(line.Substring(7, 2), 16);
+            if (line.Length < 11 + count * 2)
+                continue;
+
+            switch (type)
+            {
+                case 0x00: // data
+                    for (int b = 0; b < count; b++)
+                        image[baseAddress + address + b] = Convert.ToByte(line.Substring(9 + b * 2, 2), 16);
+                    break;
+                case 0x01: // end of file
+                    goto done;
+                case 0x02: // extended segment address
+                    baseAddress = (long)Convert.ToInt32(line.Substring(9, 4), 16) << 4;
+                    break;
+                case 0x04: // extended linear address
+                    baseAddress = (long)Convert.ToInt32(line.Substring(9, 4), 16) << 16;
+                    break;
+            }
+        }
+
+        done:
+        if (image.Count == 0)
+            return Array.Empty<byte>();
+
+        long start = image.Keys.First();
+        var bytes = new byte[image.Keys.Last() - start + 1];
+        foreach (var (addr, value) in image)
+            bytes[addr - start] = value;
+        return bytes;
+    }
+
+    /// <summary>
+    /// True when <paramref name="bundled"/> is newer than <paramref name="device"/>.
+    /// A device that reports no (or an unreadable) version is treated as outdated.
+    /// </summary>
+    public static bool IsNewer(string? bundled, string? device)
+    {
+        if (!Version.TryParse(bundled, out var b))
+            return false;
+        if (!Version.TryParse(device, out var d))
+            return true;
+        return b > d;
+    }
+
     private static string FindAvrdude()
     {
         // 1) Bundled next to the exe (preferred for distribution).

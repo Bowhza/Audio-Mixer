@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
@@ -23,6 +24,9 @@ public sealed class SerialPortInfo
 
     /// <summary>True when the port's USB vendor matches a common USB-serial bridge.</summary>
     public bool IsLikelyDevice { get; init; }
+
+    /// <summary>Bluetooth virtual COM ports can block for a long time on open, so they are never probed.</summary>
+    public bool IsBluetooth { get; init; }
 
     public string Display =>
         string.IsNullOrWhiteSpace(Description) ? PortName : $"{PortName} - {Description}";
@@ -56,6 +60,13 @@ public sealed class DeviceDetector : IDisposable
         new(@"VID_([0-9A-F]{4})&PID_([0-9A-F]{4})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private ManagementEventWatcher? _watcher;
+
+    // Ports with a probe still running. A port can only be opened once, so a new
+    // scan must not try a port an older (possibly stuck) probe still holds.
+    private static readonly ConcurrentDictionary<string, byte> Probing = new(StringComparer.OrdinalIgnoreCase);
+
+    // Upper bound for a whole scan, so one unresponsive port can't stall detection.
+    private static readonly TimeSpan ScanTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>Raised (on a background thread) when a USB device is plugged in or removed.</summary>
     public event Action? DevicesChanged;
@@ -99,6 +110,8 @@ public sealed class DeviceDetector : IDisposable
                     VendorId = vid,
                     ProductId = pid,
                     IsLikelyDevice = vid != null && KnownVendorIds.Contains(vid),
+                    IsBluetooth = (pnp?.StartsWith("BTHENUM", StringComparison.OrdinalIgnoreCase) ?? false)
+                                  || name.Contains("Bluetooth", StringComparison.OrdinalIgnoreCase),
                 };
             }
         }
@@ -129,11 +142,15 @@ public sealed class DeviceDetector : IDisposable
         int baudRate, string? excludePort = null, CancellationToken ct = default)
     {
         var ports = ListPorts()
+            .Where(p => !p.IsBluetooth)
+            .Where(p => !Probing.ContainsKey(p.PortName))
             .Where(p => !string.Equals(p.PortName, excludePort, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         if (ports.Count == 0)
             return null;
+
+        var timeout = Task.Delay(ScanTimeout, ct);
 
         // Probe all candidates in parallel and return the first confirmed match,
         // preferring ports whose USB vendor looks like a known serial bridge.
@@ -146,7 +163,11 @@ public sealed class DeviceDetector : IDisposable
 
         while (remaining.Count > 0)
         {
-            var finished = await Task.WhenAny(remaining).ConfigureAwait(false);
+            var any = await Task.WhenAny(remaining.Cast<Task>().Append(timeout)).ConfigureAwait(false);
+            if (any == timeout)
+                break; // leftover probes finish (and release their ports) on their own
+
+            var finished = (Task<DetectionResult?>)any;
             remaining.Remove(finished);
 
             var result = await finished.ConfigureAwait(false);
@@ -164,6 +185,9 @@ public sealed class DeviceDetector : IDisposable
     private static async Task<DetectionResult?> ProbePortAsync(
         string port, int baudRate, CancellationToken ct)
     {
+        if (!Probing.TryAdd(port, 0))
+            return null;
+
         return await Task.Run(() =>
         {
             try
@@ -177,22 +201,24 @@ public sealed class DeviceDetector : IDisposable
                 };
                 sp.Open();
 
-                // Boards with auto-reset reboot when the port opens. The firmware
-                // emits an identify line on boot. We also actively ask, for boards
-                // that don't reset. Allow enough time to cover the bootloader delay.
+                // Boards with auto-reset reboot when the port opens, and the
+                // bootloader eats (or is upset by) anything sent too early. The
+                // firmware announces itself once it boots. Boards that don't reset
+                // are asked directly, a few times in case a query gets lost.
                 var sb = new StringBuilder();
-                var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(2500);
-                bool asked = false;
+                var start = DateTime.UtcNow;
+                var deadline = start + TimeSpan.FromMilliseconds(4000);
+                var nextAsk = start + TimeSpan.FromMilliseconds(1600);
 
                 while (DateTime.UtcNow < deadline)
                 {
                     if (ct.IsCancellationRequested)
                         return null;
 
-                    if (!asked && DateTime.UtcNow > deadline - TimeSpan.FromMilliseconds(2300))
+                    if (DateTime.UtcNow >= nextAsk)
                     {
                         try { sp.Write("ID?\n"); } catch { /* ignore */ }
-                        asked = true;
+                        nextAsk = DateTime.UtcNow + TimeSpan.FromMilliseconds(800);
                     }
 
                     string chunk;
@@ -228,8 +254,12 @@ public sealed class DeviceDetector : IDisposable
             {
                 Debug.WriteLine($"[DeviceDetector] Probe {port} failed: {ex.Message}");
             }
+            finally
+            {
+                Probing.TryRemove(port, out _);
+            }
             return (DetectionResult?)null;
-        }, ct).ConfigureAwait(false);
+        }).ConfigureAwait(false);
     }
 
     /// <summary>Starts watching for USB device arrival/removal (Windows WMI).</summary>
